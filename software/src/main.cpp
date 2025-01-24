@@ -72,8 +72,15 @@ void setup() {
 
   /* Initialize the BMP-3xy */
   if (!bmp.Begin()) {
-    Serial.println("[ERROR] Initializing communication with BMP-3xy faild.");
+    Serial.println("[ERROR] Initializing communication with BMP faild.");
   }
+
+  /* Initialize the SHT */
+  if (!sht.init()) {
+    Serial.println("[ERROR] Initializing communication with SHT faild.");
+  }
+
+
 }
 
 void loop() {
@@ -81,7 +88,8 @@ void loop() {
   bool send_once = false;
   
   float temperature_c = 0;
-  float humidity_ha = 0;
+  float pressure_ha = 0;
+  float humidity_pct = 0;
 
   while(1)  {
     delay(10);  // <- fixes some issues with WiFi stability
@@ -108,17 +116,24 @@ void loop() {
     }
 
     //Send sensor value
-    if(lastMillis + 1000 <= millis())
+    if(lastMillis + 10000 <= millis())
     {
-      if(bmp.Read())
-      {
+      if(bmp.Read())  {
         temperature_c = bmp.die_temp_c();
-        humidity_ha = bmp.pres_pa();
+        pressure_ha = bmp.pres_pa();
         client.publish("d1101/temperature_c",  String(temperature_c));
-        client.publish("d1101/pressure_ha",  String(humidity_ha/100.0));
-        Serial.printf("[INFO] Temerature: %.2f °C, Pressure: %.2f ha\n", temperature_c, humidity_ha);
+        client.publish("d1101/pressure_ha",  String(pressure_ha/100.0));
+        Serial.printf("[INFO] Temerature: %.2f °C, Pressure: %.2f ha\n", temperature_c, pressure_ha);
       } else  {
         Serial.printf("[ERROR] BMP3 not available.\n");
+      }
+
+      if(sht.readSample())  {
+        temperature_c = sht.getTemperature();
+        humidity_pct = sht.getHumidity();
+        Serial.printf("[INFO] Temerature: %.2f °C, Humidity: %.2f %%\n", temperature_c, humidity_pct);
+      } else  {
+        Serial.printf("[ERROR] SHT not available.\n");
       }
     }
 
