@@ -7,10 +7,19 @@
 #include <SHTSensor.h>
 
 
+#define DISABLE_CODE_FOR_RECEIVER
+#include "PinDefinitionsAndMore.h"
+#include <IRremote.hpp>
+
+
+
+
+
 const char ssid[] = "WLAN-2400G";
 const char pass[] = "!Gauting-82131-Berg-92";
 #define DIGITAL_PIN_TPG2200 1
-#define INTERN_LED 8
+#define IREMOTE_PIN_SEND 10
+#define INTERN_LED 2
 #define NUMPIXELS  1
 #define I2C_FREQUENCY 40000
 #define SDA_PIN 4
@@ -23,7 +32,7 @@ WiFiClient net;
 MQTTClient client;
 
 
-
+//========================================================================================================//
 void connect() {
   Serial.print("[INFO] Checking wifi...");
   digitalWrite(INTERN_LED, HIGH); 
@@ -41,19 +50,24 @@ void connect() {
   Serial.println("\n[INFO] Connected");
   pixels.setPixelColor(0, pixels.Color(0, 0, 0));
   pixels.show();
-  client.subscribe("/hello");
+  client.subscribe("d1101/projector_power");
   // client.unsubscribe("/hello");
 
 }
 
+//========================================================================================================//
 void messageReceived(String &topic, String &payload) {
   Serial.println("incoming: " + topic + " - " + payload);
+  IrSender.sendNEC(0x1308, 0x87, 1);
+  pixels.setPixelColor(0, pixels.Color(255, 255, 0));
+  pixels.show();
 
   // Note: Do not use the client in the callback to publish, subscribe or
   // unsubscribe as it may cause deadlocks when other things arrive while
   // sending and receiving acknowledgments. Instead, change a global variable,
   // or push to a queue and handle it in the loop after calling `client.loop()`.
 }
+
 //========================================================================================================//
 void setup() {
   Serial.begin(115200);
@@ -80,9 +94,14 @@ void setup() {
     Serial.println("[ERROR] Initializing communication with SHT faild.");
   }
 
-
+  IrSender.begin();
+  disableLEDFeedback();
+  Serial.println(F("START " __FILE__ " from " __DATE__ "\r\nUsing library version " VERSION_IRREMOTE));
+    Serial.print(F("Send IR signals at pin "));
+    Serial.println(IR_SEND_PIN);
 }
 
+//========================================================================================================//
 void loop() {
   unsigned long lastMillis = 0;
   bool send_once = false;
@@ -92,7 +111,7 @@ void loop() {
   float humidity_pct = 0;
 
   while(1)  {
-    delay(10);  // <- fixes some issues with WiFi stability
+    delay(100);  // <- fixes some issues with WiFi stability
     if (!client.connected()) {
       connect();
     }
@@ -116,7 +135,7 @@ void loop() {
     }
 
     //Send sensor value
-    if(lastMillis + 10000 <= millis())
+    if(lastMillis + 1000 <= millis())
     {
       if(bmp.Read())  {
         temperature_c = bmp.die_temp_c();
@@ -131,6 +150,8 @@ void loop() {
       if(sht.readSample())  {
         temperature_c = sht.getTemperature();
         humidity_pct = sht.getHumidity();
+        client.publish("d1101/temperature_c",  String(temperature_c));
+        client.publish("d1101/humidity_pct",  String(humidity_pct));
         Serial.printf("[INFO] Temerature: %.2f °C, Humidity: %.2f %%\n", temperature_c, humidity_pct);
       } else  {
         Serial.printf("[ERROR] SHT not available.\n");
