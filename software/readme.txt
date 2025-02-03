@@ -12,3 +12,13 @@ platform = espressif32
 board = esp32-c3-devkitm-1
 framework = arduino
 monitor_speed = 115200
+
+
+
+
+
+
+IRemote
+
+
+Protocol=NEC Address=0x1308 Command=0x87 Repeat gap=96350us
